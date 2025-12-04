@@ -219,7 +219,13 @@ Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si) {
 
         else if ((idx = PieceToChar.find(token)) != string::npos)
         {
-            put_piece(Piece(idx), sq);
+            Piece pc = Piece(idx);
+            put_piece(pc, sq);
+            if (type_of(pc) != PAWN)
+            {
+                st->nonPawnMaterial[color_of(pc)] += PieceValue[pc];
+            }
+            st->materialBalance += (color_of(pc) == WHITE ? 1 : -1) * PieceValue[pc];
             ++sq;
         }
     }
@@ -862,10 +868,9 @@ void Position::do_move(Move                      m,
             if (promotionType <= BISHOP)
                 st->minorPieceKey ^= Zobrist::psq[promotion][to];
 
-            // Update material
+            // Update material counters
             st->nonPawnMaterial[us] += PieceValue[promotion];
-            st->materialBalance +=
-              (us == WHITE ? 1 : -1) * (PieceValue[promotion] - PieceValue[PAWN]);
+            st->materialBalance += (us == WHITE ? 1 : -1) * (PieceValue[promotion] - PawnValue);
         }
 
         // Update pawn hash key
