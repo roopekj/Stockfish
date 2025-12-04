@@ -36,6 +36,7 @@
 #include "movegen.h"
 #include "syzygy/tbprobe.h"
 #include "tt.h"
+#include "types.h"
 #include "uci.h"
 
 using std::string;
@@ -340,7 +341,7 @@ void Position::set_state() const {
     st->minorPieceKey     = 0;
     st->nonPawnKey[WHITE] = st->nonPawnKey[BLACK] = 0;
     st->pawnKey                                   = Zobrist::noPawns;
-    st->nonPawnMaterial[WHITE] = st->nonPawnMaterial[BLACK] = VALUE_ZERO;
+    st->materialBalance = st->nonPawnMaterial[WHITE] = st->nonPawnMaterial[BLACK] = VALUE_ZERO;
     st->checkersBB = attackers_to(square<KING>(sideToMove)) & pieces(~sideToMove);
 
     set_check_info();
@@ -353,7 +354,6 @@ void Position::set_state() const {
 
         if (type_of(pc) == PAWN)
             st->pawnKey ^= Zobrist::psq[pc][s];
-
         else
         {
             st->nonPawnKey[color_of(pc)] ^= Zobrist::psq[pc][s];
@@ -366,6 +366,8 @@ void Position::set_state() const {
                     st->minorPieceKey ^= Zobrist::psq[pc][s];
             }
         }
+
+        st->materialBalance += (color_of(pc) == WHITE ? 1 : -1) * PieceValue[pc];
     }
 
     if (st->epSquare != SQ_NONE)
@@ -791,6 +793,9 @@ void Position::do_move(Move                      m,
         st->materialKey ^=
           Zobrist::psq[captured][8 + pieceCount[captured] - (m.type_of() != EN_PASSANT)];
 
+        // Reflect the capture in material balance
+        st->materialBalance += (us == WHITE ? 1 : -1) * PieceValue[captured];
+
         // Reset rule 50 counter
         st->rule50 = 0;
     }
@@ -859,6 +864,8 @@ void Position::do_move(Move                      m,
 
             // Update material
             st->nonPawnMaterial[us] += PieceValue[promotion];
+            st->materialBalance +=
+              (us == WHITE ? 1 : -1) * (PieceValue[promotion] - PieceValue[PAWN]);
         }
 
         // Update pawn hash key
